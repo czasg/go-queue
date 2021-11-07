@@ -9,12 +9,16 @@ func NewLifoMemoryQueue(size int) Queue {
 var _ Queue = (*LifoMemoryQueue)(nil)
 
 type LifoMemoryQueue struct {
-	Q     [][]byte
-	Index int
-	Lock  sync.Mutex
+	Q      [][]byte
+	Index  int
+	Lock   sync.Mutex
+	Closed bool
 }
 
 func (q *LifoMemoryQueue) Push(data []byte) error {
+	if q.Closed {
+		return ErrClosed
+	}
 	q.Lock.Lock()
 	defer q.Lock.Unlock()
 	if q.Index >= len(q.Q) {
@@ -26,6 +30,9 @@ func (q *LifoMemoryQueue) Push(data []byte) error {
 }
 
 func (q *LifoMemoryQueue) Pop() ([]byte, error) {
+	if q.Closed {
+		return nil, ErrClosed
+	}
 	q.Lock.Lock()
 	defer q.Lock.Unlock()
 	if q.Index <= 0 {
@@ -38,5 +45,6 @@ func (q *LifoMemoryQueue) Pop() ([]byte, error) {
 }
 
 func (q *LifoMemoryQueue) Close() error {
+	q.Closed = true
 	return nil
 }
