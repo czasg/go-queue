@@ -10,7 +10,7 @@ func TestNewFifoDiskQueue(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	queue, err := NewFifoDiskQueue(dir, 3)
+	queue, err := NewFifoDiskQueueWithChunk(dir, 3)
 	if err != nil {
 		panic(err)
 	}
@@ -23,9 +23,9 @@ func TestNewFifoDiskQueue(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	_, err = NewFifoDiskQueue(dir, 4)
+	_, err = NewFifoDiskQueueWithChunk(dir, 4)
 	assertErr(t, err, ErrChunkSizeInconsistency)
-	queue, err = NewFifoDiskQueue(dir, 3)
+	queue, err = NewFifoDiskQueueWithChunk(dir, 3)
 	if err != nil {
 		panic(err)
 	}

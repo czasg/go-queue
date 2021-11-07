@@ -18,7 +18,11 @@ const (
 	FIFO_DATA = "fifo.data.%04d"
 )
 
-func NewFifoDiskQueue(dir string, chunk int) (Queue, error) {
+func NewFifoDiskQueue(dir string) (Queue, error) {
+	return NewFifoDiskQueueWithChunk(dir, 50000)
+}
+
+func NewFifoDiskQueueWithChunk(dir string, chunk int) (Queue, error) {
 	dir = filepath.Join(dir, "_fifo")
 	queue := FifoDiskQueue{Dir: dir}
 	err := os.MkdirAll(dir, os.ModePerm)
