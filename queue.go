@@ -6,6 +6,7 @@ type Queue interface {
 	Push(data []byte) error
 	Pop() ([]byte, error)
 	Close() error
+	Len() int
 }
 
 var (

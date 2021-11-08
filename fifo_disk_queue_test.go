@@ -15,6 +15,7 @@ func TestNewFifoDiskQueue(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	queue.Len()
 	assertErr(t, queue.Push([]byte{1}), nil)
 	assertErr(t, queue.Push([]byte{2}), nil)
 	assertErr(t, queue.Push([]byte{3}), nil)

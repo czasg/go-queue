@@ -15,6 +15,10 @@ type LifoMemoryQueue struct {
 	Closed bool
 }
 
+func (q *LifoMemoryQueue) Len() int {
+	return q.Index
+}
+
 func (q *LifoMemoryQueue) Push(data []byte) error {
 	if q.Closed {
 		return ErrClosed

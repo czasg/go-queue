@@ -11,6 +11,10 @@ type FifoMemoryQueue struct {
 	Closed bool
 }
 
+func (q *FifoMemoryQueue) Len() int {
+	return len(q.Q)
+}
+
 func (q *FifoMemoryQueue) Push(data []byte) error {
 	if q.Closed {
 		return ErrClosed

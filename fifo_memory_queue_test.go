@@ -6,6 +6,7 @@ import (
 
 func TestNewFifoMemoryQueue(t *testing.T) {
 	queue := NewFifoMemoryQueue(3)
+	queue.Len()
 	assertErr(t, queue.Push([]byte{1}), nil)
 	assertErr(t, queue.Push([]byte{2}), nil)
 	assertErr(t, queue.Push([]byte{3}), nil)

@@ -19,6 +19,7 @@ func assertData(t *testing.T, data1, data2 []byte) {
 
 func TestNewLifoMemoryQueue(t *testing.T) {
 	queue := NewLifoMemoryQueue(3)
+	queue.Len()
 	assertErr(t, queue.Push([]byte{1}), nil)
 	assertErr(t, queue.Push([]byte{2}), nil)
 	assertErr(t, queue.Push([]byte{3}), nil)
