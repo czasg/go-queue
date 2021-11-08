@@ -9,6 +9,13 @@ type Queue interface {
 	Len() int
 }
 
+type PriorityQueue interface {
+	Push(data []byte, priority int) error
+	Pop() ([]byte, error)
+	Close() error
+	Len() int
+}
+
 var (
 	ErrClosed                 = errors.New("queue closed")
 	ErrEmptyQueue             = errors.New("queue empty")
