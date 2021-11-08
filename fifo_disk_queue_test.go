@@ -58,32 +58,10 @@ func TestNewFifoDiskQueue(t *testing.T) {
 	assertErr(t, err, ErrClosed)
 }
 
-func TestFifoDiskQueue_openData(t *testing.T) {
-	q := FifoDiskQueue{Dir: ">0<"}
-	_, err := q.openData(0, 0)
-	if err == nil {
-		t.Error("failure")
-	}
-}
-
 func TestFifoDiskQueue_saveStat(t *testing.T) {
-	q := FifoDiskQueue{Dir: ">0<"}
-	err := q.saveStat()
-	if err == nil {
-		t.Error("failure")
-	}
-
 	dir, _ := ioutil.TempDir("", "")
 	defer os.RemoveAll(dir)
 	_, _ = NewFifoDiskQueueWithChunk(dir, 10)
 
 	_, _ = NewFifoDiskQueue(">0<")
-}
-
-func TestFifoDiskQueue_openStat(t *testing.T) {
-	q := FifoDiskQueue{Dir: ">0<"}
-	_, err := q.openStat()
-	if err == nil {
-		t.Error("failure")
-	}
 }
