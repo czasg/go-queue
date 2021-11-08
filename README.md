@@ -10,8 +10,7 @@ go-queue was collections for queues (FIFO), stacks (LIFO) and others.
 |&radic;|fifo disk queue|
 |&radic;|lifo memory queue|
 |x|lifo disk queue|
-|x|priority memory queue|
-|x|priority disk queue|
+|&radic;|priority queue|
 
 # Demo
 ### fifo memory queue
@@ -123,5 +122,33 @@ func main() {
 	_, err = q.Pop()
 	assert(err, queue.ErrEmptyQueue)
 	_ = q.Close()
+}
+```
+
+### priority queue
+```golang
+package main
+
+import (
+	"fmt"
+	"github.com/czasg/go-queue"
+	"reflect"
+)
+
+func main() {
+	factory := func() queue.Queue {
+		return queue.NewFifoMemoryQueue(1024)
+	}
+	q := queue.NewPriorityQueueFactory(nil, factory)
+	_ = q.Push([]byte("v1"), 1)
+	_ = q.Push([]byte("v2"), 10)
+	_ = q.Push([]byte("v3"), 5)
+
+	data, _ := q.Pop()
+	fmt.Println(reflect.DeepEqual(data, []byte("v2")))
+	data, _ = q.Pop()
+	fmt.Println(reflect.DeepEqual(data, []byte("v3")))
+	data, _ = q.Pop()
+	fmt.Println(reflect.DeepEqual(data, []byte("v1")))
 }
 ```
