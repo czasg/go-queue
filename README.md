@@ -1,4 +1,6 @@
 # go-queue
+[![codecov](https://codecov.io/gh/czasg/go-queue/branch/main/graph/badge.svg?token=GMXXOKC4P8)](https://codecov.io/gh/czasg/go-queue)
+
 go-queue was collections for queues (FIFO), stacks (LIFO) and others.
 
 ### note
