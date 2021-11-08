@@ -28,4 +28,9 @@ func TestNewFifoMemoryQueue(t *testing.T) {
 	assertData(t, data, nil)
 	err = queue.Close()
 	assertErr(t, err, nil)
+
+	queue = NewFifoMemoryQueue(3)
+	_ = queue.Close()
+	_ = queue.Push([]byte{1})
+	_, _ = queue.Pop()
 }

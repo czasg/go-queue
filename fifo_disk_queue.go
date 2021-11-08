@@ -213,10 +213,7 @@ func (q *FifoDiskQueue) saveStat() error {
 		return err
 	}
 	defer f.Close()
-	body, err := json.MarshalIndent(q.Stat, "", "  ")
-	if err != nil {
-		return err
-	}
+	body, _ := json.MarshalIndent(q.Stat, "", "  ")
 	_, err = f.Write(body)
 	return err
 }
