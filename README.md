@@ -1,7 +1,18 @@
 # go-queue
 [![codecov](https://codecov.io/gh/czasg/go-queue/branch/main/graph/badge.svg?token=GMXXOKC4P8)](https://codecov.io/gh/czasg/go-queue)
 
-go-queue was collections for queues (FIFO), stacks (LIFO) and others.
+go-queue was collections for queues (FIFO), stacks (LIFO) and priority.
+
+```text
+      |—————————|          |——————————————————|               
+      |  queue  | -------- |  priority queue  |
+      |—————————|          |——————————————————|
+     ______|______
+    |             |
+|————————|   |————————|
+|  fifo  |   |  lifo  |
+|————————|   |————————|
+```
 
 ### note
 |status|function|
@@ -11,6 +22,23 @@ go-queue was collections for queues (FIFO), stacks (LIFO) and others.
 |&radic;|lifo memory queue|
 |x|lifo disk queue|
 |&radic;|priority queue|
+
+### interface
+```golang
+type Queue interface {
+	Push(data []byte) error
+	Pop() ([]byte, error)
+	Close() error
+	Len() int
+}
+
+type PriorityQueue interface {
+	Push(data []byte, priority int) error
+	Pop() ([]byte, error)
+	Close() error
+	Len() int
+}
+```
 
 # Demo
 ### fifo memory queue
