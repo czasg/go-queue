@@ -57,4 +57,21 @@ func TestNewPriorityQueueFactory(t *testing.T) {
 	_ = queue.Close()
 	_ = queue.Push([]byte{1}, 0)
 	_, _ = queue.Pop()
+
+
+	queue = NewPriorityQueueFactory(map[int]Queue{
+		1:factory(),
+		2:factory(),
+	}, factory)
+	_ = queue.Push([]byte{11}, 1)
+	_ = queue.Push([]byte{12}, 1)
+	_ = queue.Push([]byte{13}, 1)
+	_ = queue.Push([]byte{21}, 2)
+	_ = queue.Push([]byte{22}, 2)
+	_ = queue.Push([]byte{23}, 2)
+	_ = queue.Push([]byte{31}, 3)
+	_ = queue.Push([]byte{32}, 3)
+	_ = queue.Push([]byte{33}, 3)
+	queue.Len()
+	_ = queue.Close()
 }
