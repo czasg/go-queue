@@ -5,12 +5,19 @@ import "sync"
 type QueueFactory func() Queue
 
 func NewPriorityQueueFactory(queues map[int]Queue, factory QueueFactory) PriorityQueue {
+	cursor := 0
 	if queues == nil {
 		queues = map[int]Queue{}
+	}
+	for priority := range queues {
+		if cursor < priority {
+			cursor = priority
+		}
 	}
 	return &PriorityQueueFactory{
 		QueueFactory: factory,
 		Q:            queues,
+		Cursor:       cursor,
 	}
 }
 
@@ -60,6 +67,7 @@ func (q *PriorityQueueFactory) Pop() ([]byte, error) {
 		return nil, err
 	}
 	if queue.Len() < 1 {
+		_ = queue.Close()
 		delete(q.Q, q.Cursor)
 		q.Cursor = 0
 		for priority := range q.Q {
