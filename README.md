@@ -14,14 +14,12 @@ go-queue was collections for queues (FIFO), stacks (LIFO) and priority.
 |————————|   |————————|
 ```
 
-### note
-|status|function|
-|---|---|
-|&radic;|fifo memory queue|
-|&radic;|fifo disk queue|
-|&radic;|lifo memory queue|
-|x|lifo disk queue|
-|&radic;|priority queue|
+### plan
+- [x] fifo memory queue
+- [x] fifo disk queue
+- [x] lifo memory queue
+- [ ] lifo disk queue
+- [x] priority queue
 
 ### interface
 ```golang
