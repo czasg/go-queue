@@ -1,7 +1,9 @@
 package queue
 
 import (
+	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"testing"
 )
@@ -11,6 +13,7 @@ func TestNewFifoDiskQueue(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	defer os.RemoveAll(dir)
 	queue, err := NewFifoDiskQueueWithChunk(dir, 3)
 	if err != nil {
 		panic(err)
@@ -63,6 +66,34 @@ func TestFifoDiskQueue_saveStat(t *testing.T) {
 	dir, _ := ioutil.TempDir("", "")
 	defer os.RemoveAll(dir)
 	_, _ = NewFifoDiskQueueWithChunk(dir, 10)
-
 	_, _ = NewFifoDiskQueue(">0<")
+}
+
+func TestNewFifoDiskQueue2(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		panic(err)
+	}
+	defer os.RemoveAll(dir)
+	queue, err := NewFifoDiskQueue(dir)
+	if err != nil {
+		panic(err)
+	}
+	defer queue.Close()
+
+	for i := 0; i <= 100000; i++ {
+		err = queue.Push([]byte(fmt.Sprintf("%d", i)))
+		if err != nil {
+			panic(err)
+		}
+	}
+	for i := 0; i <= 100000; i++ {
+		data, err := queue.Pop()
+		if err != nil {
+			panic(err)
+		}
+		if string(data) != fmt.Sprintf("%d", i) {
+			log.Panic("test error ", string(data), i)
+		}
+	}
 }
