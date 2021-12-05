@@ -48,7 +48,6 @@ type LifoDiskQueue struct {
 	Dir      string
 	Stat     *LifoStat
 	HeadFile *os.File
-	TailFile *os.File
 	Lock     sync.Mutex
 	Closed   bool
 }
