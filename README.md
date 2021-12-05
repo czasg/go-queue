@@ -23,7 +23,7 @@ go-queue was collections for queues (FIFO), stacks (LIFO) and priority.
 - [x] fifo memory queue
 - [x] fifo disk queue
 - [x] lifo memory queue
-- [ ] lifo disk queue
+- [x] lifo disk queue
 - [x] priority queue
 
 ### interface
@@ -49,35 +49,24 @@ type PriorityQueue interface {
 package main
 
 import (
-	"fmt"
 	"github.com/czasg/go-queue"
-	"reflect"
 )
-
-func assert(v1, v2 interface{}) {
-	if !reflect.DeepEqual(v1, v2) {
-		panic(fmt.Sprintf("%v != %v", v1, v2))
-	}
-}
 
 func main() {
 	maxQueueSize := 2 // out of max size, push data will return (nil, ErrFullQueue)
 	q := queue.NewFifoMemoryQueue(maxQueueSize)
-	_ = q.Push([]byte("test1"))
-	_, _ = q.Pop()
+    defer q.Close()
 
-	assert(q.Push([]byte("test1")), nil)
-	assert(q.Push([]byte("test2")), nil)
-	assert(q.Push([]byte("test3")), queue.ErrFullQueue)
-	data, err := q.Pop()
-	assert(data, []byte("test1"))
-	assert(err, nil)
-	data, err = q.Pop()
-	assert(data, []byte("test2"))
-	assert(err, nil)
-	_, err = q.Pop()
-	assert(err, queue.ErrEmptyQueue)
-	_ = q.Close()
+	q.Push([]byte("test1")) // nil
+	q.Pop()                 // test, nil
+
+    q.Push([]byte("test1")) // nil
+    q.Push([]byte("test1")) // nil
+    q.Push([]byte("test1")) // ErrFullQueue
+
+    q.Pop() // test, nil
+    q.Pop() // test, nil
+    q.Pop() // ErrEmptyQueue
 }
 ```
 
@@ -87,34 +76,25 @@ disk queue will never full.
 package main
 
 import (
-	"fmt"
 	"github.com/czasg/go-queue"
 	"io/ioutil"
 	"os"
-	"reflect"
 )
-
-func assert(v1, v2 interface{}) {
-	if !reflect.DeepEqual(v1, v2) {
-		panic(fmt.Sprintf("%v != %v", v1, v2))
-	}
-}
 
 func main() {
 	dir, _ := ioutil.TempDir("", "")
 	defer os.RemoveAll(dir)
+	
 	q, _ := queue.NewFifoDiskQueue(dir)
 	_ = q.Push([]byte("test1"))
-	_, _ = q.Pop()
+	_ = q.Push([]byte("test2"))
+	_ = q.Push([]byte("test3"))
+	_ = q.Close()
 
-	assert(q.Push([]byte("test1")), nil)
-	assert(q.Push([]byte("test2")), nil)
-	data, err := q.Pop()
-	assert(data, []byte("test1"))
-	assert(err, nil)
-	data, err = q.Pop()
-	assert(data, []byte("test2"))
-	assert(err, nil)
+	q, _ = queue.NewFifoDiskQueue(dir) // open again
+	_, _ = q.Pop() // test1
+	_, _ = q.Pop() // test2
+	_, _ = q.Pop() // test3
 	_ = q.Close()
 }
 ```
@@ -124,39 +104,58 @@ func main() {
 package main
 
 import (
-	"fmt"
 	"github.com/czasg/go-queue"
-	"reflect"
 )
-
-func assert(v1, v2 interface{}) {
-	if !reflect.DeepEqual(v1, v2) {
-		panic(fmt.Sprintf("%v != %v", v1, v2))
-	}
-}
 
 func main() {
 	maxQueueSize := 2 // out of max size, push data will return (nil, ErrFullQueue)
 	q := queue.NewLifoMemoryQueue(maxQueueSize)
-	_ = q.Push([]byte("test1"))
-	_, _ = q.Pop()
+	defer q.Close()
 
-	assert(q.Push([]byte("test1")), nil)
-	assert(q.Push([]byte("test2")), nil)
-	assert(q.Push([]byte("test3")), queue.ErrFullQueue)
-	data, err := q.Pop()
-	assert(data, []byte("test2"))
-	assert(err, nil)
-	data, err = q.Pop()
-	assert(data, []byte("test1"))
-	assert(err, nil)
-	_, err = q.Pop()
-	assert(err, queue.ErrEmptyQueue)
+	q.Push([]byte("test1")) // nil
+	q.Pop()                 // test, nil
+
+	q.Push([]byte("test1")) // nil
+	q.Push([]byte("test1")) // nil
+	q.Push([]byte("test1")) // ErrFullQueue
+
+	q.Pop() // test, nil
+	q.Pop() // test, nil
+	q.Pop() // ErrEmptyQueue
+}
+```
+
+### lifo disk queue
+disk queue will never full.
+```golang
+package main
+
+import (
+	"github.com/czasg/go-queue"
+	"io/ioutil"
+	"os"
+)
+
+func main() {
+	dir, _ := ioutil.TempDir("", "")
+	defer os.RemoveAll(dir)
+
+	q, _ := queue.NewLifoDiskQueue(dir)
+	_ = q.Push([]byte("test1"))
+	_ = q.Push([]byte("test2"))
+	_ = q.Push([]byte("test3"))
+	_ = q.Close()
+
+	q, _ = queue.NewLifoDiskQueue(dir) // open again
+	_, _ = q.Pop() // test3
+	_, _ = q.Pop() // test2
+	_, _ = q.Pop() // test1
 	_ = q.Close()
 }
 ```
 
 ### priority queue
+`PriorityQueue` based on `Queue` as a queue factory.
 ```golang
 package main
 
