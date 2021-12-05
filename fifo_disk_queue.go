@@ -70,10 +70,6 @@ type FifoDiskQueue struct {
 	Closed   bool
 }
 
-func (q *FifoDiskQueue) Len() int {
-	return q.Stat.Size
-}
-
 type FifoStat struct {
 	Size      int
 	ChunkSize int
@@ -177,6 +173,10 @@ func (q *FifoDiskQueue) Close() error {
 		return nil
 	}
 	return os.RemoveAll(q.Dir)
+}
+
+func (q *FifoDiskQueue) Len() int {
+	return q.Stat.Size
 }
 
 func (q *FifoDiskQueue) openStat() (*FifoStat, error) {
