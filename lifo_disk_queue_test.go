@@ -26,6 +26,8 @@ func TestNewLifoDiskQueue(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	_ = queue.Push([]byte{1})
+	_, _ = queue.Pop()
 	queue, err = NewLifoDiskQueue(dir)
 	if err != nil {
 		panic(err)
@@ -48,4 +50,5 @@ func TestNewLifoDiskQueue(t *testing.T) {
 	data, err = queue.Pop()
 	assertErr(t, err, ErrEmptyQueue)
 	assertData(t, data, nil)
+	queue.Close()
 }

@@ -113,10 +113,6 @@ func (q *LifoDiskQueue) Pop() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = q.HeadFile.Truncate(int64(q.Stat.Offset) - int64(4+length))
-	if err != nil {
-		return nil, err
-	}
 	q.Stat.Size--
 	q.Stat.Offset -= 4 + int(length)
 	return buf, nil
@@ -129,8 +125,18 @@ func (q *LifoDiskQueue) Close() error {
 		return nil
 	}
 	q.Closed = true
-	_ = q.HeadFile.Close()
-	err := q.saveStat()
+	// Truncate file
+	err := q.HeadFile.Truncate(int64(q.Stat.Offset))
+	if err != nil {
+		return err
+	}
+	// Close file
+	err = q.HeadFile.Close()
+	if err != nil {
+		return err
+	}
+	// Save stat file
+	err = q.saveStat()
 	if err != nil {
 		return err
 	}
