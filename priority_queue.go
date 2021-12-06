@@ -2,7 +2,7 @@ package queue
 
 import "sync"
 
-type QueueFactory func() Queue
+type QueueFactory func(priority int) Queue
 
 func NewPriorityQueueFactory(queues map[int]Queue, factory QueueFactory) PriorityQueue {
 	cursor := 0
@@ -39,7 +39,7 @@ func (q *PriorityQueueFactory) Push(data []byte, priority int) error {
 	}
 	queue, ok := q.Q[priority]
 	if !ok {
-		queue = q.QueueFactory()
+		queue = q.QueueFactory(priority)
 	}
 	err := queue.Push(data)
 	if err != nil {

@@ -172,7 +172,7 @@ import (
 )
 
 func main() {
-	factory := func() queue.Queue {
+	factory := func(priority int) queue.Queue {
 		return queue.NewFifoMemoryQueue(1024)
 	}
 	q := queue.NewPriorityQueueFactory(nil, factory)

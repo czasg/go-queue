@@ -5,7 +5,7 @@ import (
 )
 
 func TestNewPriorityQueueFactory(t *testing.T) {
-	factory := func() Queue {
+	factory := func(priority int) Queue {
 		return NewFifoMemoryQueue(1024)
 	}
 	queue := NewPriorityQueueFactory(nil, factory)
@@ -60,8 +60,8 @@ func TestNewPriorityQueueFactory(t *testing.T) {
 
 
 	queue = NewPriorityQueueFactory(map[int]Queue{
-		1:factory(),
-		2:factory(),
+		1:factory(1),
+		2:factory(2),
 	}, factory)
 	_ = queue.Push([]byte{11}, 1)
 	_ = queue.Push([]byte{12}, 1)
