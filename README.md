@@ -6,17 +6,23 @@
 [![GitHub Issue](https://img.shields.io/github/issues/czasg/go-queue.svg?style=flat-square&label=Issues&logo=github)](https://github.com/czasg/go-queue/issues)
 
 
-go-queue was collections for queues (FIFO), stacks (LIFO) and priority.
+go-queue was thread-safe collections for memory/disks queues (FIFO), stacks (LIFO) and priority.
+
 
 ```text
-      |—————————|          |——————————————————|               
-      |  queue  | -------- |  priority queue  |
-      |—————————|          |——————————————————|
-     ______|______
-    |             |
-|————————|   |————————|
-|  fifo  |   |  lifo  |
-|————————|   |————————|
+                  |—————————|                   |——————————————————|               
+                  |  queue  | -----factory----- |  priority queue  |
+                  |—————————|                   |——————————————————|
+           ____________|___________
+          |                        |      
+      |————————|              |————————|
+      |  fifo  |              |  lifo  |
+      |————————|              |————————|
+     _____|_____              _____|_____
+    |           |            |           |
+|————————||——————————|   |————————||——————————|
+|  disk  ||  memory  |   |  disk  ||  memory  |
+|————————||——————————|   |————————||——————————|
 ```
 
 ### plan
