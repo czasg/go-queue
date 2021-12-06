@@ -55,18 +55,18 @@ import (
 func main() {
 	maxQueueSize := 2 // out of max size, push data will return (nil, ErrFullQueue)
 	q := queue.NewFifoMemoryQueue(maxQueueSize)
-    defer q.Close()
+	defer q.Close()
 
 	q.Push([]byte("test1")) // nil
 	q.Pop()                 // test, nil
 
-    q.Push([]byte("test1")) // nil
-    q.Push([]byte("test1")) // nil
-    q.Push([]byte("test1")) // ErrFullQueue
+	q.Push([]byte("test1")) // nil
+   	q.Push([]byte("test1")) // nil
+   	q.Push([]byte("test1")) // ErrFullQueue
 
-    q.Pop() // test, nil
-    q.Pop() // test, nil
-    q.Pop() // ErrEmptyQueue
+   	q.Pop() // test, nil
+    	q.Pop() // test, nil
+    	q.Pop() // ErrEmptyQueue
 }
 ```
 
