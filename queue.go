@@ -17,8 +17,8 @@ type PriorityQueue interface {
 }
 
 var (
-	ErrClosed                 = errors.New("queue closed")
-	ErrEmptyQueue             = errors.New("queue empty")
-	ErrFullQueue              = errors.New("queue full")
-	ErrChunkSizeInconsistency = errors.New("queue chunk size inconsistency")
+	ErrClosed                 = errors.New("queue closed")                   // 队列已关闭
+	ErrEmptyQueue             = errors.New("queue empty")                    // 空队列
+	ErrFullQueue              = errors.New("queue full")                     // 满队列
+	ErrChunkSizeInconsistency = errors.New("queue chunk size inconsistency") // 仅 fifo-disk-queue 校验时返回
 )

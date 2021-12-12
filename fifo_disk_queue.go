@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	FIFO_STAT = "fifo.stat.json"
-	FIFO_DATA = "fifo.data.%04d"
+	FIFO_STAT = "fifo.stat.json" // 存储状态信息
+	FIFO_DATA = "fifo.data.%04d" // 存储数据信息
 )
 
 func NewFifoDiskQueue(dir string) (Queue, error) {

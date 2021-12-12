@@ -5,8 +5,7 @@
 [![GitHub Forks](https://img.shields.io/github/forks/czasg/go-queue.svg?style=flat-square&label=Forks&logo=github)](https://github.com/czasg/go-queue/network/members)
 [![GitHub Issue](https://img.shields.io/github/issues/czasg/go-queue.svg?style=flat-square&label=Issues&logo=github)](https://github.com/czasg/go-queue/issues)
 
-
-go-queue was thread-safe collections for memory/disks queues (FIFO), stacks (LIFO) and priority.
+**go-queue** 实现了常用的队列结构，包括 **FIFO**、**LIFO**、**PriorityQueue** 等，并且支持将数据**持久化**到磁盘。
 
 
 ```text
@@ -34,13 +33,14 @@ go-queue was thread-safe collections for memory/disks queues (FIFO), stacks (LIF
 
 ### interface
 ```golang
+// 普通队列
 type Queue interface {
 	Push(data []byte) error
 	Pop() ([]byte, error)
 	Close() error
 	Len() int
 }
-
+// 优先级队列
 type PriorityQueue interface {
 	Push(data []byte, priority int) error
 	Pop() ([]byte, error)
@@ -49,8 +49,9 @@ type PriorityQueue interface {
 }
 ```
 
-# Demo
-### fifo memory queue
+# Queue
+## fifo memory queue
+基于内存的 `FIFO` 队列，初始化时需要指定队列大小，程序退出后数据丢失。
 ```golang
 package main
 
@@ -76,8 +77,9 @@ func main() {
 }
 ```
 
-### fifo disk queue
-disk queue will never full.
+## fifo disk queue
+基于磁盘文件的 `FIFO` 队列，初始化时需要指定存储目录，程序退出后需要执行 `Close` 方法，以确保数据不会丢失。   
+设计上 `fifo disk queue` 没有存储上限，故不需要显示指定队列大小。
 ```golang
 package main
 
@@ -105,7 +107,8 @@ func main() {
 }
 ```
 
-### lifo memory queue
+## lifo memory queue
+基于内存的 `LIFO` 队列，初始化时需要指定队列大小，程序退出后数据丢失。
 ```golang
 package main
 
@@ -131,8 +134,9 @@ func main() {
 }
 ```
 
-### lifo disk queue
-disk queue will never full.
+## lifo disk queue
+基于磁盘文件的 `LIFO` 队列，初始化时需要指定存储目录，程序退出后需要执行 `Close` 方法，以确保数据不会丢失。   
+设计上 `lifo disk queue` 没有存储上限，故不需要显示指定队列大小。
 ```golang
 package main
 
@@ -161,7 +165,8 @@ func main() {
 ```
 
 ### priority queue
-`PriorityQueue` based on `Queue` as a queue factory.
+优先级队列，是基于常规队列实现的，故初始化时，需要指定**工厂函数**，用于内部创建新的优先级队列。  
+工厂函数返回一个新的 `Queue` 类型，可以指定返回内存队列，也可以返回磁盘队列。
 ```golang
 package main
 

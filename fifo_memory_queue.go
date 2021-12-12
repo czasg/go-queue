@@ -7,7 +7,7 @@ func NewFifoMemoryQueue(size int) Queue {
 var _ Queue = (*FifoMemoryQueue)(nil)
 
 type FifoMemoryQueue struct {
-	Q      chan []byte
+	Q      chan []byte // 基于chan实现数据传递，无需加锁
 	Closed bool
 }
 
