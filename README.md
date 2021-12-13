@@ -5,7 +5,10 @@
 [![GitHub Forks](https://img.shields.io/github/forks/czasg/go-queue.svg?style=flat-square&label=Forks&logo=github)](https://github.com/czasg/go-queue/network/members)
 [![GitHub Issue](https://img.shields.io/github/issues/czasg/go-queue.svg?style=flat-square&label=Issues&logo=github)](https://github.com/czasg/go-queue/issues)
 
-**go-queue** 实现了常用的队列结构，包括 **FIFO**、**LIFO**、**PriorityQueue** 等，并且支持将数据**持久化**到磁盘。
+**go-queue** 实现了常用的队列结构，包括 **FIFO**、**LIFO**、**PriorityQueue** 等
+
+1、支持内存存储。  
+2、支持持久化存储。
 
 
 ```text
