@@ -1,232 +1,190 @@
 package queue
 
 import (
-	"bytes"
-	"encoding/binary"
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"sync"
+    "bytes"
+    "context"
+    "encoding/binary"
+    "fmt"
+    "io"
+    "os"
+    "strconv"
+    "strings"
+    "sync"
 )
 
-const (
-	FIFO_STAT = "fifo.stat.json" // 存储状态信息
-	FIFO_DATA = "fifo.data.%04d" // 存储数据信息
-)
-
-func NewFifoDiskQueue(dir string) (Queue, error) {
-	return NewFifoDiskQueueWithChunk(dir, 50000)
-}
-
-func NewFifoDiskQueueWithChunk(dir string, chunk int) (Queue, error) {
-	dir = filepath.Join(dir, "_fifo")
-	queue := FifoDiskQueue{Dir: dir}
-	err := os.MkdirAll(dir, os.ModePerm)
-	if err != nil {
-		return nil, err
-	}
-	stat, err := queue.openStat()
-	if err != nil {
-		return nil, err
-	}
-	if stat == nil {
-		stat = &FifoStat{ChunkSize: chunk}
-	}
-	if stat.ChunkSize != chunk {
-		return nil, ErrChunkSizeInconsistency
-	}
-	queue.Stat = stat
-	head, err := queue.openHead()
-	if err != nil {
-		return nil, err
-	}
-	_, err = head.Seek(0, os.SEEK_END)
-	if err != nil {
-		return nil, err
-	}
-	queue.HeadFile = head
-	tail, err := queue.openTail()
-	if err != nil {
-		return nil, err
-	}
-	_, err = tail.Seek(int64(queue.Stat.Tail.Offset), os.SEEK_SET)
-	if err != nil {
-		return nil, err
-	}
-	queue.TailFile = tail
-	return &queue, nil
+func NewFifoDiskQueue(file string) (Queue, error) {
+    var err error
+    ctx, cancel := context.WithCancel(context.Background())
+    queue := FifoDiskQueue{
+        ctx:    ctx,
+        cancel: cancel,
+    }
+    queue.writeFile, err = os.OpenFile(file, os.O_RDWR|os.O_CREATE, os.ModePerm)
+    if err != nil {
+        return nil, err
+    }
+    queue.readFile, err = os.OpenFile(file, os.O_RDONLY, os.ModePerm)
+    if err != nil {
+        return nil, err
+    }
+    stat, err := queue.readFile.Stat()
+    if err != nil {
+        return nil, err
+    }
+    if stat.Size() == 0 {
+        return &queue, nil
+    }
+    _, err = queue.writeFile.Seek(-4, io.SeekEnd)
+    if err != nil {
+        return nil, err
+    }
+    buf := make([]byte, 4)
+    _, err = queue.writeFile.Read(buf)
+    if err != nil {
+        return nil, err
+    }
+    var length int32
+    err = binary.Read(bytes.NewBuffer(buf), binary.BigEndian, &length)
+    if err != nil {
+        return nil, err
+    }
+    offset, err := queue.writeFile.Seek(int64(-4-length), io.SeekCurrent)
+    if err != nil {
+        return nil, err
+    }
+    buf = make([]byte, length)
+    _, err = queue.writeFile.Read(buf)
+    if err != nil {
+        return nil, err
+    }
+    bufs := strings.Split(string(buf), ",")
+    if len(bufs) != 2 {
+        return nil, fmt.Errorf("%s 格式异常", string(buf))
+    }
+    indexString := bufs[0]
+    offsetString := bufs[1]
+    queue.index, err = strconv.Atoi(indexString)
+    if err != nil {
+        return nil, err
+    }
+    queue.offset, err = strconv.Atoi(offsetString)
+    if err != nil {
+        return nil, err
+    }
+    err = queue.writeFile.Truncate(offset)
+    if err != nil {
+        return nil, err
+    }
+    _, err = queue.writeFile.Seek(0, io.SeekEnd)
+    if err != nil {
+        return nil, err
+    }
+    _, err = queue.readFile.Seek(int64(queue.offset), io.SeekStart)
+    if err != nil {
+        return nil, err
+    }
+    return &queue, nil
 }
 
 var _ Queue = (*FifoDiskQueue)(nil)
 
 type FifoDiskQueue struct {
-	Dir      string
-	Stat     *FifoStat
-	HeadFile *os.File
-	TailFile *os.File
-	Lock     sync.Mutex
-	Closed   bool
+    index     int
+    offset    int
+    readFile  *os.File
+    writeFile *os.File
+    lock      sync.Mutex
+    ctx       context.Context
+    cancel    context.CancelFunc
 }
 
-type FifoStat struct {
-	Size      int
-	ChunkSize int
-	Head      struct {
-		Index int
-		Count int
-	}
-	Tail struct {
-		Index  int
-		Count  int
-		Offset int
-	}
+func (q *FifoDiskQueue) Get(ctx context.Context) ([]byte, error) {
+    select {
+    case <-q.ctx.Done():
+        return nil, ErrQueueClosed
+    default:
+    }
+    q.lock.Lock()
+    defer q.lock.Unlock()
+    if q.index <= 0 {
+        return nil, ErrQueueEmpty
+    }
+    buf := make([]byte, 4)
+    _, err := q.readFile.Read(buf)
+    if err != nil {
+        return nil, err
+    }
+    var length int32
+    err = binary.Read(bytes.NewBuffer(buf), binary.BigEndian, &length)
+    if err != nil {
+        return nil, err
+    }
+    buf = make([]byte, length)
+    _, err = q.readFile.Read(buf)
+    if err != nil {
+        return nil, err
+    }
+    _, err = q.readFile.Seek(int64(-length), io.SeekCurrent)
+    if err != nil {
+        return nil, err
+    }
+    q.index--
+    q.offset += int(length) + 4
+    return buf, nil
 }
 
-func (q *FifoDiskQueue) Push(data []byte) error {
-	if q.Closed {
-		return ErrClosed
-	}
-	q.Lock.Lock()
-	defer q.Lock.Unlock()
-	buf := new(bytes.Buffer)
-	err := binary.Write(buf, binary.BigEndian, int32(len(data)))
-	if err != nil {
-		return err
-	}
-	_, err = q.HeadFile.Write(bytes.Join([][]byte{buf.Bytes(), data}, []byte("")))
-	if err != nil {
-		return err
-	}
-	q.Stat.Head.Count++
-	if q.Stat.Head.Count >= q.Stat.ChunkSize {
-		q.Stat.Head.Index++
-		q.Stat.Head.Count = 0
-		_ = q.HeadFile.Close()
-		head, err := q.openHead()
-		if err != nil {
-			return err
-		}
-		q.HeadFile = head
-	}
-	q.Stat.Size++
-	return err
-}
-
-func (q *FifoDiskQueue) Pop() ([]byte, error) {
-	if q.Closed {
-		return nil, ErrClosed
-	}
-	if q.Stat.Tail.Index >= q.Stat.Head.Index && q.Stat.Tail.Count >= q.Stat.Head.Count {
-		return nil, ErrEmptyQueue
-	}
-	q.Lock.Lock()
-	defer q.Lock.Unlock()
-	buf := make([]byte, 4)
-	_, err := q.TailFile.Read(buf)
-	if err != nil {
-		return nil, err
-	}
-	var length int32
-	err = binary.Read(bytes.NewBuffer(buf), binary.BigEndian, &length)
-	if err != nil {
-		return nil, err
-	}
-	buf = make([]byte, length)
-	_, err = q.TailFile.Read(buf)
-	if err != nil {
-		return nil, err
-	}
-	q.Stat.Tail.Count++
-	q.Stat.Tail.Offset += 4 + int(length)
-	if q.Stat.Tail.Count == q.Stat.ChunkSize && q.Stat.Tail.Index <= q.Stat.Head.Index {
-		_ = q.TailFile.Close()
-		_ = os.Remove(filepath.Join(q.Dir, fmt.Sprintf(FIFO_DATA, q.Stat.Tail.Index)))
-		q.Stat.Tail.Count = 0
-		q.Stat.Tail.Offset = 0
-		q.Stat.Tail.Index++
-		tail, err := q.openTail()
-		if err != nil {
-			return nil, err
-		}
-		q.TailFile = tail
-	}
-	q.Stat.Size--
-	return buf, nil
+func (q *FifoDiskQueue) Put(ctx context.Context, data []byte) error {
+    select {
+    case <-q.ctx.Done():
+        return ErrQueueClosed
+    default:
+    }
+    q.lock.Lock()
+    defer q.lock.Unlock()
+    buf := new(bytes.Buffer)
+    err := binary.Write(buf, binary.BigEndian, int32(len(data)))
+    if err != nil {
+        return err
+    }
+    _, err = q.writeFile.Write(bytes.Join([][]byte{buf.Bytes(), data}, []byte("")))
+    if err != nil {
+        return err
+    }
+    q.index++
+    return nil
 }
 
 func (q *FifoDiskQueue) Close() error {
-	q.Lock.Lock()
-	defer q.Lock.Unlock()
-	if q.Closed {
-		return nil
-	}
-	q.Closed = true
-	_ = q.HeadFile.Close()
-	_ = q.TailFile.Close()
-	err := q.saveStat()
-	if err != nil {
-		return err
-	}
-	if q.Stat.Size > 0 {
-		return nil
-	}
-	return os.RemoveAll(q.Dir)
+    select {
+    case <-q.ctx.Done():
+        return nil
+    default:
+    }
+    q.lock.Lock()
+    defer q.lock.Unlock()
+    q.cancel()
+    defer func() {
+        q.readFile.Close()
+        q.writeFile.Close()
+    }()
+    if q.index < 1 {
+        return q.writeFile.Truncate(0)
+    }
+    offset, err := q.writeFile.Seek(0, io.SeekCurrent)
+    if err != nil {
+        return err
+    }
+    err = q.writeFile.Truncate(offset)
+    if err != nil {
+        return err
+    }
+    data := fmt.Sprintf("%d,%d", q.index, q.offset)
+    buf := new(bytes.Buffer)
+    _ = binary.Write(buf, binary.BigEndian, int32(len(data)))
+    _, err = q.writeFile.Write(bytes.Join([][]byte{[]byte(data), buf.Bytes()}, []byte("")))
+    return err
 }
 
 func (q *FifoDiskQueue) Len() int {
-	return q.Stat.Size
-}
-
-func (q *FifoDiskQueue) openStat() (*FifoStat, error) {
-	statJsonPath := filepath.Join(q.Dir, FIFO_STAT)
-	_, err := os.Stat(statJsonPath)
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
-	f, err := os.Open(statJsonPath)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	body, err := ioutil.ReadAll(f)
-	if err != nil {
-		return nil, err
-	}
-	var stat FifoStat
-	err = json.Unmarshal(body, &stat)
-	if err != nil {
-		return nil, err
-	}
-	return &stat, nil
-}
-
-func (q *FifoDiskQueue) saveStat() error {
-	statJsonPath := filepath.Join(q.Dir, FIFO_STAT)
-	f, err := os.Create(statJsonPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	body, _ := json.MarshalIndent(q.Stat, "", "  ")
-	_, err = f.Write(body)
-	return err
-}
-
-func (q *FifoDiskQueue) openData(index, flag int) (*os.File, error) {
-	dataPath := filepath.Join(q.Dir, fmt.Sprintf(FIFO_DATA, index))
-	f, err := os.OpenFile(dataPath, flag, os.ModePerm)
-	if err != nil {
-		return nil, err
-	}
-	return f, nil
-}
-
-func (q *FifoDiskQueue) openHead() (*os.File, error) {
-	return q.openData(q.Stat.Head.Index, os.O_RDWR|os.O_CREATE|os.O_APPEND)
-}
-
-func (q *FifoDiskQueue) openTail() (*os.File, error) {
-	return q.openData(q.Stat.Tail.Index, os.O_RDONLY)
+    return q.index
 }

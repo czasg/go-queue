@@ -1,54 +1,91 @@
 package queue
 
 import (
+	"context"
+	"errors"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"testing"
 )
 
-func TestNewLifoDiskQueue(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
+func TestNewLifoDiskQueue1(t *testing.T) {
+	file, err := ioutil.TempFile("", "")
 	if err != nil {
 		panic(err)
 	}
-	defer os.RemoveAll(dir)
-	queue, err := NewLifoDiskQueue(dir)
+	defer os.RemoveAll(file.Name())
+	file.Close()
+	queue, err := NewLifoDiskQueue(file.Name())
 	if err != nil {
 		panic(err)
 	}
-	queue.Len()
-	assertErr(t, queue.Push([]byte{1}), nil)
-	assertErr(t, queue.Push([]byte{2}), nil)
-	assertErr(t, queue.Push([]byte{3}), nil)
-	assertErr(t, queue.Push([]byte{4}), nil)
-	assertErr(t, queue.Push([]byte{5}), nil)
-	err = queue.Close()
+	name := "TestNewLifoDiskQueue"
+	{
+		if length := queue.Len(); length != 0 {
+			t.Error(name, "空队列-获取长度为0", length)
+		}
+		if data, err := queue.Get(nil); data != nil || !errors.Is(err, ErrQueueEmpty) {
+			t.Error(name, "空队列-Get数据返回ErrQueueEmpty", data, err)
+		}
+	}
+	{
+		if err := queue.Put(nil, []byte{}); err != nil {
+			t.Error(name, "空队列-Put数据返回nil", err)
+		}
+		if data, err := queue.Get(nil); !reflect.DeepEqual(data, []byte{}) || err != nil {
+			t.Error(name, "非空队列-Get数据返回nil", data, err)
+		}
+	}
+	{
+		if err := queue.Close(); err != nil {
+			t.Error(name, "队列关闭返回nil", err)
+		}
+	}
+	{
+		if data, err := queue.Get(nil); data != nil || !errors.Is(err, ErrQueueClosed) {
+			t.Error(name, "关闭队列-Get数据返回ErrQueueClosed", data, err)
+		}
+		if data, err := queue.Get(context.Background()); data != nil || !errors.Is(err, ErrQueueClosed) {
+			t.Error(name, "关闭队列-Get数据返回ErrQueueClosed", data, err)
+		}
+		if err := queue.Put(nil, []byte{}); !errors.Is(err, ErrQueueClosed) {
+			t.Error(name, "关闭队列-推送数据返回ErrQueueClosed", err)
+		}
+		if err := queue.Put(context.Background(), []byte{}); !errors.Is(err, ErrQueueClosed) {
+			t.Error(name, "关闭队列-推送数据返回ErrQueueClosed", err)
+		}
+	}
+	{
+		if err := queue.Close(); err != nil {
+			t.Error(name, "队列关闭返回nil", err)
+		}
+	}
+}
+
+func TestNewLifoDiskQueue2(t *testing.T) {
+	file, err := ioutil.TempFile("", "")
 	if err != nil {
 		panic(err)
 	}
-	_ = queue.Push([]byte{1})
-	_, _ = queue.Pop()
-	queue, err = NewLifoDiskQueue(dir)
+	defer os.RemoveAll(file.Name())
+	file.Close()
+	queue, err := NewLifoDiskQueue(file.Name())
 	if err != nil {
 		panic(err)
 	}
-	data, err := queue.Pop()
-	assertErr(t, err, nil)
-	assertData(t, data, []byte{5})
-	data, err = queue.Pop()
-	assertErr(t, err, nil)
-	assertData(t, data, []byte{4})
-	data, err = queue.Pop()
-	assertErr(t, err, nil)
-	assertData(t, data, []byte{3})
-	data, err = queue.Pop()
-	assertErr(t, err, nil)
-	assertData(t, data, []byte{2})
-	data, err = queue.Pop()
-	assertErr(t, err, nil)
-	assertData(t, data, []byte{1})
-	data, err = queue.Pop()
-	assertErr(t, err, ErrEmptyQueue)
-	assertData(t, data, nil)
-	queue.Close()
+	name := "TestNewLifoDiskQueue2"
+	if err := queue.Put(nil, []byte{}); err != nil {
+		t.Error(name, "空队列-Put数据返回nil", err)
+	}
+	if err := queue.Close(); err != nil {
+		t.Error(name, "队列关闭返回nil", err)
+	}
+	queue, err = NewLifoDiskQueue(file.Name())
+	if err != nil {
+		panic(err)
+	}
+	if data, err := queue.Get(nil); !reflect.DeepEqual(data, []byte{}) || err != nil {
+		t.Error(name, "非空队列-Get数据返回nil", data, err)
+	}
 }

@@ -1,50 +1,43 @@
 package queue
 
 import (
-	"reflect"
-	"testing"
+    "context"
+    "errors"
+    "testing"
+    "time"
 )
 
-func assertErr(t *testing.T, err1, err2 error) {
-	if err1 != err2 {
-		t.Error("failure")
-	}
-}
-
-func assertData(t *testing.T, data1, data2 []byte) {
-	if !reflect.DeepEqual(data1, data2) {
-		t.Error("failure")
-	}
-}
-
 func TestNewLifoMemoryQueue(t *testing.T) {
-	queue := NewLifoMemoryQueue(3)
-	queue.Len()
-	assertErr(t, queue.Push([]byte{1}), nil)
-	assertErr(t, queue.Push([]byte{2}), nil)
-	assertErr(t, queue.Push([]byte{3}), nil)
-	assertErr(t, queue.Push([]byte{4}), ErrFullQueue)
-	assertErr(t, queue.Push([]byte{5}), ErrFullQueue)
-	data, err := queue.Pop()
-	assertErr(t, err, nil)
-	assertData(t, data, []byte{3})
-	data, err = queue.Pop()
-	assertErr(t, err, nil)
-	assertData(t, data, []byte{2})
-	data, err = queue.Pop()
-	assertErr(t, err, nil)
-	assertData(t, data, []byte{1})
-	data, err = queue.Pop()
-	assertErr(t, err, ErrEmptyQueue)
-	assertData(t, data, nil)
-	data, err = queue.Pop()
-	assertErr(t, err, ErrEmptyQueue)
-	assertData(t, data, nil)
-	err = queue.Close()
-	assertErr(t, err, nil)
+    test_queue("TestNewLifoMemoryQueue", NewLifoMemoryQueue(1024), t)
+}
 
-	queue = NewLifoMemoryQueue(3)
-	_ = queue.Close()
-	_ = queue.Push([]byte{1})
-	_, _ = queue.Pop()
+func TestNewLifoMemoryQueueGetClose(t *testing.T) {
+    name := "LifoMemoryQueue"
+    queue := NewLifoMemoryQueue(1024)
+    go func() {
+        if data, err := queue.Get(context.Background()); data != nil || !errors.Is(err, ErrQueueClosed) {
+            t.Error(name, "TestNewLifoMemoryQueuePutClose-ctx失效-阻塞队列-推送1024条数据返回cancel", err)
+        }
+    }()
+    time.Sleep(time.Millisecond)
+    queue.Close()
+    time.Sleep(time.Millisecond * 2)
+}
+
+func TestNewLifoMemoryQueuePutClose(t *testing.T) {
+    name := "LifoMemoryQueue"
+    queue := NewLifoMemoryQueue(1024)
+    for i := 0; i < 1024; i++ {
+        if err := queue.Put(nil, []byte{}); err != nil {
+            t.Error(name, "阻塞队列-推送1024条数据返回nil", err)
+        }
+    }
+    go func() {
+        if err := queue.Put(context.Background(), []byte{}); !errors.Is(err, ErrQueueClosed) {
+            t.Error(name, "TestNewLifoMemoryQueuePutClose-ctx失效-阻塞队列-推送1024条数据返回cancel", err)
+        }
+    }()
+    time.Sleep(time.Millisecond)
+    queue.Close()
+    time.Sleep(time.Second)
 }
