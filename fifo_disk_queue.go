@@ -124,10 +124,6 @@ func (q *FifoDiskQueue) Get(ctx context.Context) ([]byte, error) {
     if err != nil {
         return nil, err
     }
-    _, err = q.readFile.Seek(int64(-length), io.SeekCurrent)
-    if err != nil {
-        return nil, err
-    }
     q.index--
     q.offset += int(length) + 4
     return buf, nil
@@ -142,11 +138,8 @@ func (q *FifoDiskQueue) Put(ctx context.Context, data []byte) error {
     q.lock.Lock()
     defer q.lock.Unlock()
     buf := new(bytes.Buffer)
-    err := binary.Write(buf, binary.BigEndian, int32(len(data)))
-    if err != nil {
-        return err
-    }
-    _, err = q.writeFile.Write(bytes.Join([][]byte{buf.Bytes(), data}, []byte("")))
+    _ = binary.Write(buf, binary.BigEndian, int32(len(data)))
+    _, err := q.writeFile.Write(bytes.Join([][]byte{buf.Bytes(), data}, []byte("")))
     if err != nil {
         return err
     }

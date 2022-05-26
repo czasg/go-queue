@@ -111,7 +111,7 @@ func (q *LifoDiskQueue) Get(ctx context.Context) ([]byte, error) {
     }
     _, err = q.file.Seek(int64(-length), io.SeekCurrent)
     if err != nil {
-        return nil, err
+      return nil, err
     }
     q.index--
     return buf, nil
