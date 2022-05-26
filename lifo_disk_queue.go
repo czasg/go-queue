@@ -12,30 +12,29 @@ import (
 )
 
 func NewLifoDiskQueue(file string) (Queue, error) {
+    var err error
     ctx, cancel := context.WithCancel(context.Background())
-
     queue := LifoDiskQueue{
         ctx:       ctx,
         cancel:    cancel,
     }
-    f, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE, os.ModePerm)
+    queue.file, err = os.OpenFile(file, os.O_RDWR|os.O_CREATE, os.ModePerm)
     if err != nil {
         return nil, err
     }
-    queue.file = f
-    stat, err := f.Stat()
+    stat, err := queue.file.Stat()
     if err != nil {
         return nil, err
     }
     if stat.Size() == 0 {
         return &queue, nil
     }
-    _, err = f.Seek(-4, io.SeekEnd)
+    _, err = queue.file.Seek(-4, io.SeekEnd)
     if err != nil {
         return nil, err
     }
     buf := make([]byte, 4)
-    _, err = f.Read(buf)
+    _, err = queue.file.Read(buf)
     if err != nil {
         return nil, err
     }
@@ -44,12 +43,12 @@ func NewLifoDiskQueue(file string) (Queue, error) {
     if err != nil {
         return nil, err
     }
-    offset, err := f.Seek(int64(-4-length), io.SeekCurrent)
+    offset, err := queue.file.Seek(int64(-4-length), io.SeekCurrent)
     if err != nil {
         return nil, err
     }
     buf = make([]byte, length)
-    _, err = f.Read(buf)
+    _, err = queue.file.Read(buf)
     if err != nil {
         return nil, err
     }
@@ -57,11 +56,11 @@ func NewLifoDiskQueue(file string) (Queue, error) {
     if err != nil {
         return nil, err
     }
-    err = f.Truncate(offset)
+    err = queue.file.Truncate(offset)
     if err != nil {
         return nil, err
     }
-    _, err = f.Seek(0, io.SeekEnd)
+    _, err = queue.file.Seek(0, io.SeekEnd)
     if err != nil {
         return nil, err
     }

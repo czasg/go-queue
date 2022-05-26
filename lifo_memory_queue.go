@@ -28,7 +28,6 @@ type LifoMemoryQueue struct {
     cancel context.CancelFunc
     lock   sync.Mutex
     index  int
-    //getNotify chan struct{}
     getNotify chan struct{}
     putNotify chan struct{}
 }
@@ -45,7 +44,7 @@ func (q *LifoMemoryQueue) Get(ctx context.Context) ([]byte, error) {
             return nil, ctx.Err()
         case <-q.ctx.Done():
             return nil, ErrQueueClosed
-        case <-q.getNotify:
+        case <-q.getNotify: // 阻塞，则表示当前队列无数据
         }
     }
     q.lock.Lock()

@@ -48,10 +48,6 @@ func NewFifoDiskQueue(file string) (Queue, error) {
     if err != nil {
         return nil, err
     }
-    offset, err := queue.writeFile.Seek(int64(-4-length), io.SeekCurrent)
-    if err != nil {
-        return nil, err
-    }
     buf = make([]byte, length)
     _, err = queue.writeFile.Read(buf)
     if err != nil {
@@ -68,6 +64,10 @@ func NewFifoDiskQueue(file string) (Queue, error) {
         return nil, err
     }
     queue.offset, err = strconv.Atoi(offsetString)
+    if err != nil {
+        return nil, err
+    }
+    offset, err := queue.writeFile.Seek(int64(-4-length), io.SeekCurrent)
     if err != nil {
         return nil, err
     }
