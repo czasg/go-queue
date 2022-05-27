@@ -1,24 +1,19 @@
 package queue
 
-import "errors"
-
-type Queue interface {
-	Push(data []byte) error
-	Pop() ([]byte, error)
-	Close() error
-	Len() int
-}
-
-type PriorityQueue interface {
-	Push(data []byte, priority int) error
-	Pop() ([]byte, error)
-	Close() error
-	Len() int
-}
+import (
+    "context"
+    "errors"
+)
 
 var (
-	ErrClosed                 = errors.New("queue closed")                   // 队列已关闭
-	ErrEmptyQueue             = errors.New("queue empty")                    // 空队列
-	ErrFullQueue              = errors.New("queue full")                     // 满队列
-	ErrChunkSizeInconsistency = errors.New("queue chunk size inconsistency") // 仅 fifo-disk-queue 校验时返回
+    ErrQueueClosed = errors.New("queue closed")
+    ErrQueueEmpty  = errors.New("queue empty")
+    ErrQueueFull   = errors.New("queue full")
 )
+
+type Queue interface {
+    Get(ctx context.Context) ([]byte, error)
+    Put(ctx context.Context, data []byte) error
+    Len() int
+    Close() error
+}

@@ -1,195 +1,168 @@
 package queue
 
 import (
-	"bytes"
-	"encoding/binary"
-	"encoding/json"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"sync"
+    "bytes"
+    "context"
+    "encoding/binary"
+    "fmt"
+    "io"
+    "os"
+    "strconv"
+    "sync"
 )
 
-const (
-	LIFO_STAT = "lifo.stat.json"
-	LIFO_DATA = "lifo.data"
-)
-
-func NewLifoDiskQueue(dir string) (Queue, error) {
-	dir = filepath.Join(dir, "_lifo")
-	queue := LifoDiskQueue{Dir: dir}
-	err := os.MkdirAll(dir, os.ModePerm)
-	if err != nil {
-		return nil, err
-	}
-	stat, err := queue.openStat()
-	if err != nil {
-		return nil, err
-	}
-	if stat == nil {
-		stat = &LifoStat{}
-	}
-	queue.Stat = stat
-	head, err := queue.openHead()
-	if err != nil {
-		return nil, err
-	}
-	_, err = head.Seek(0, os.SEEK_END)
-	if err != nil {
-		return nil, err
-	}
-	queue.HeadFile = head
-	return &queue, nil
+func NewLifoDiskQueue(file string) (Queue, error) {
+    var err error
+    ctx, cancel := context.WithCancel(context.Background())
+    queue := LifoDiskQueue{
+        ctx:       ctx,
+        cancel:    cancel,
+    }
+    queue.file, err = os.OpenFile(file, os.O_RDWR|os.O_CREATE, os.ModePerm)
+    if err != nil {
+        return nil, err
+    }
+    stat, err := queue.file.Stat()
+    if err != nil {
+        return nil, err
+    }
+    if stat.Size() == 0 {
+        return &queue, nil
+    }
+    _, err = queue.file.Seek(-4, io.SeekEnd)
+    if err != nil {
+        return nil, err
+    }
+    buf := make([]byte, 4)
+    _, err = queue.file.Read(buf)
+    if err != nil {
+        return nil, err
+    }
+    var length int32
+    err = binary.Read(bytes.NewBuffer(buf), binary.BigEndian, &length)
+    if err != nil {
+        return nil, err
+    }
+    offset, err := queue.file.Seek(int64(-4-length), io.SeekCurrent)
+    if err != nil {
+        return nil, err
+    }
+    buf = make([]byte, length)
+    _, err = queue.file.Read(buf)
+    if err != nil {
+        return nil, err
+    }
+    queue.index, err = strconv.Atoi(string(buf))
+    if err != nil {
+        return nil, err
+    }
+    err = queue.file.Truncate(offset)
+    if err != nil {
+        return nil, err
+    }
+    _, err = queue.file.Seek(0, io.SeekEnd)
+    if err != nil {
+        return nil, err
+    }
+    return &queue, nil
 }
-
-var _ Queue = (*LifoDiskQueue)(nil)
 
 type LifoDiskQueue struct {
-	Dir      string
-	Stat     *LifoStat
-	HeadFile *os.File
-	Lock     sync.Mutex
-	Closed   bool
+    index     int
+    file      *os.File
+    lock      sync.Mutex
+    ctx       context.Context
+    cancel    context.CancelFunc
 }
 
-type LifoStat struct {
-	Size   int
-	Offset int
+func (q *LifoDiskQueue) Get(ctx context.Context) ([]byte, error) {
+    select {
+    case <-q.ctx.Done():
+        return nil, ErrQueueClosed
+    default:
+    }
+    q.lock.Lock()
+    defer q.lock.Unlock()
+    if q.index <= 0 {
+        return nil, ErrQueueEmpty
+    }
+    _, err := q.file.Seek(-4, io.SeekCurrent)
+    if err != nil {
+        return nil, err
+    }
+    buf := make([]byte, 4)
+    _, err = q.file.Read(buf)
+    if err != nil {
+        return nil, err
+    }
+    var length int32
+    err = binary.Read(bytes.NewBuffer(buf), binary.BigEndian, &length)
+    if err != nil {
+        return nil, err
+    }
+    _, err = q.file.Seek(int64(-4-length), io.SeekCurrent)
+    if err != nil {
+        return nil, err
+    }
+    buf = make([]byte, length)
+    _, err = q.file.Read(buf)
+    if err != nil {
+        return nil, err
+    }
+    _, err = q.file.Seek(int64(-length), io.SeekCurrent)
+    if err != nil {
+      return nil, err
+    }
+    q.index--
+    return buf, nil
 }
 
-func (q *LifoDiskQueue) Push(data []byte) error {
-	if q.Closed {
-		return ErrClosed
-	}
-	q.Lock.Lock()
-	defer q.Lock.Unlock()
-	buf := new(bytes.Buffer)
-	err := binary.Write(buf, binary.BigEndian, int32(len(data)))
-	if err != nil {
-		return err
-	}
-	_, err = q.HeadFile.Write(bytes.Join([][]byte{data, buf.Bytes()}, []byte("")))
-	if err != nil {
-		return err
-	}
-	q.Stat.Size++
-	q.Stat.Offset += 4 + len(data)
-	return nil
-}
-
-func (q *LifoDiskQueue) Pop() ([]byte, error) {
-	if q.Closed {
-		return nil, ErrClosed
-	}
-	if q.Stat.Size < 1 {
-		return nil, ErrEmptyQueue
-	}
-	q.Lock.Lock()
-	defer q.Lock.Unlock()
-	_, err := q.HeadFile.Seek(-4, os.SEEK_CUR)
-	if err != nil {
-		return nil, err
-	}
-	buf := make([]byte, 4)
-	_, err = q.HeadFile.Read(buf)
-	if err != nil {
-		return nil, err
-	}
-	var length int32
-	err = binary.Read(bytes.NewBuffer(buf), binary.BigEndian, &length)
-	if err != nil {
-		return nil, err
-	}
-	_, err = q.HeadFile.Seek(int64(-4-length), os.SEEK_CUR)
-	if err != nil {
-		return nil, err
-	}
-	buf = make([]byte, length)
-	_, err = q.HeadFile.Read(buf)
-	if err != nil {
-		return nil, err
-	}
-	_, err = q.HeadFile.Seek(int64(-length), os.SEEK_CUR)
-	if err != nil {
-		return nil, err
-	}
-	q.Stat.Size--
-	q.Stat.Offset -= 4 + int(length)
-	return buf, nil
+func (q *LifoDiskQueue) Put(ctx context.Context, data []byte) error {
+    select {
+    case <-q.ctx.Done():
+        return ErrQueueClosed
+    default:
+    }
+    q.lock.Lock()
+    defer q.lock.Unlock()
+    buf := new(bytes.Buffer)
+    _ = binary.Write(buf, binary.BigEndian, int32(len(data)))
+    _, err := q.file.Write(bytes.Join([][]byte{data, buf.Bytes()}, []byte("")))
+    if err != nil {
+        return err
+    }
+    q.index++
+    return nil
 }
 
 func (q *LifoDiskQueue) Close() error {
-	q.Lock.Lock()
-	defer q.Lock.Unlock()
-	if q.Closed {
-		return nil
-	}
-	q.Closed = true
-	// Truncate file
-	err := q.HeadFile.Truncate(int64(q.Stat.Offset))
-	if err != nil {
-		return err
-	}
-	// Close file
-	err = q.HeadFile.Close()
-	if err != nil {
-		return err
-	}
-	// Save stat file
-	err = q.saveStat()
-	if err != nil {
-		return err
-	}
-	if q.Stat.Size > 0 {
-		return nil
-	}
-	return os.RemoveAll(q.Dir)
+    select {
+    case <-q.ctx.Done():
+        return nil
+    default:
+    }
+    q.lock.Lock()
+    defer q.lock.Unlock()
+    q.cancel()
+    defer q.file.Close()
+    if q.index < 1 {
+        return q.file.Truncate(0)
+    }
+    offset, err := q.file.Seek(0, io.SeekCurrent)
+    if err != nil {
+        return err
+    }
+    err = q.file.Truncate(offset)
+    if err != nil {
+        return err
+    }
+    data := fmt.Sprintf("%d", q.index)
+    buf := new(bytes.Buffer)
+    _ = binary.Write(buf, binary.BigEndian, int32(len(data)))
+    _, err = q.file.Write(bytes.Join([][]byte{[]byte(data), buf.Bytes()}, []byte("")))
+    return err
 }
 
 func (q *LifoDiskQueue) Len() int {
-	return q.Stat.Size
-}
-
-func (q *LifoDiskQueue) openStat() (*LifoStat, error) {
-	statJsonPath := filepath.Join(q.Dir, LIFO_STAT)
-	_, err := os.Stat(statJsonPath)
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
-	f, err := os.Open(statJsonPath)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	body, err := ioutil.ReadAll(f)
-	if err != nil {
-		return nil, err
-	}
-	var stat LifoStat
-	err = json.Unmarshal(body, &stat)
-	if err != nil {
-		return nil, err
-	}
-	return &stat, nil
-}
-
-func (q *LifoDiskQueue) saveStat() error {
-	statJsonPath := filepath.Join(q.Dir, LIFO_STAT)
-	f, err := os.Create(statJsonPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	body, _ := json.MarshalIndent(q.Stat, "", "  ")
-	_, err = f.Write(body)
-	return err
-}
-
-func (q *LifoDiskQueue) openHead() (*os.File, error) {
-	dataPath := filepath.Join(q.Dir, LIFO_DATA)
-	f, err := os.OpenFile(dataPath, os.O_RDWR|os.O_CREATE, os.ModePerm)
-	if err != nil {
-		return nil, err
-	}
-	return f, nil
+    return q.index
 }

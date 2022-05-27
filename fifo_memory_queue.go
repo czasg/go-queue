@@ -1,45 +1,83 @@
 package queue
 
-func NewFifoMemoryQueue(size int) Queue {
-	return &FifoMemoryQueue{Q: make(chan []byte, size)}
+import (
+	"context"
+)
+
+func NewFifoMemoryQueue(sizes ...int) Queue {
+	ctx, cancel := context.WithCancel(context.Background())
+	size := 1024
+	if len(sizes) > 0 {
+		size = sizes[0]
+	}
+	return &FifoMemoryQueue{
+		queue:  make(chan []byte, size),
+		ctx:    ctx,
+		cancel: cancel,
+	}
 }
 
 var _ Queue = (*FifoMemoryQueue)(nil)
 
 type FifoMemoryQueue struct {
-	Q      chan []byte // 基于chan实现数据传递，无需加锁
-	Closed bool
+	queue  chan []byte
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
-func (q *FifoMemoryQueue) Len() int {
-	return len(q.Q)
-}
-
-func (q *FifoMemoryQueue) Push(data []byte) error {
-	if q.Closed {
-		return ErrClosed
-	}
+func (q *FifoMemoryQueue) Get(ctx context.Context) ([]byte, error) {
 	select {
-	case q.Q <- data:
-		return nil
+	case <-q.ctx.Done():
+		return nil, ErrQueueClosed
 	default:
-		return ErrFullQueue
 	}
-}
-
-func (q *FifoMemoryQueue) Pop() ([]byte, error) {
-	if q.Closed {
-		return nil, ErrClosed
+	if ctx == nil {
+		select {
+		case data := <-q.queue:
+			return data, nil
+		default:
+			return nil, ErrQueueEmpty
+		}
 	}
 	select {
-	case data := <-q.Q:
+	case <-q.ctx.Done():
+		return nil, ErrQueueClosed
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case data := <-q.queue:
 		return data, nil
+	}
+}
+
+func (q *FifoMemoryQueue) Put(ctx context.Context, data []byte) error {
+	select {
+	case <-q.ctx.Done():
+		return ErrQueueClosed
 	default:
-		return nil, ErrEmptyQueue
+	}
+	if ctx == nil {
+		select {
+		case q.queue <- data:
+			return nil
+		default:
+			return ErrQueueFull
+		}
+	}
+	select {
+	case <-q.ctx.Done():
+		return ErrQueueClosed
+	case <-ctx.Done():
+		return ctx.Err()
+	case q.queue <- data:
+		return nil
 	}
 }
 
 func (q *FifoMemoryQueue) Close() error {
-	q.Closed = true
+	q.cancel()
 	return nil
+}
+
+func (q *FifoMemoryQueue) Len() int {
+	return len(q.queue)
 }

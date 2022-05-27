@@ -1,37 +1,43 @@
 package queue
 
 import (
+	"context"
+	"errors"
 	"testing"
+	"time"
 )
 
 func TestNewFifoMemoryQueue(t *testing.T) {
-	queue := NewFifoMemoryQueue(3)
-	queue.Len()
-	assertErr(t, queue.Push([]byte{1}), nil)
-	assertErr(t, queue.Push([]byte{2}), nil)
-	assertErr(t, queue.Push([]byte{3}), nil)
-	assertErr(t, queue.Push([]byte{4}), ErrFullQueue)
-	assertErr(t, queue.Push([]byte{5}), ErrFullQueue)
-	data, err := queue.Pop()
-	assertErr(t, err, nil)
-	assertData(t, data, []byte{1})
-	data, err = queue.Pop()
-	assertErr(t, err, nil)
-	assertData(t, data, []byte{2})
-	data, err = queue.Pop()
-	assertErr(t, err, nil)
-	assertData(t, data, []byte{3})
-	data, err = queue.Pop()
-	assertErr(t, err, ErrEmptyQueue)
-	assertData(t, data, nil)
-	data, err = queue.Pop()
-	assertErr(t, err, ErrEmptyQueue)
-	assertData(t, data, nil)
-	err = queue.Close()
-	assertErr(t, err, nil)
+	test_queue("FifoMemoryQueue", NewFifoMemoryQueue(1024), t)
+}
 
-	queue = NewFifoMemoryQueue(3)
-	_ = queue.Close()
-	_ = queue.Push([]byte{1})
-	_, _ = queue.Pop()
+func TestNewFifoMemoryQueueGetClose(t *testing.T) {
+	name := "FifoMemoryQueue"
+	queue := NewFifoMemoryQueue(1024)
+	go func() {
+		if data, err := queue.Get(context.Background()); data != nil || !errors.Is(err, ErrQueueClosed) {
+			t.Error(name, "TestNewFifoMemoryQueuePutClose-ctx失效-阻塞队列-推送1024条数据返回cancel", err)
+		}
+	}()
+	time.Sleep(time.Millisecond)
+	queue.Close()
+	time.Sleep(time.Millisecond * 2)
+}
+
+func TestNewFifoMemoryQueuePutClose(t *testing.T) {
+	name := "FifoMemoryQueue"
+	queue := NewFifoMemoryQueue(1024)
+	for i := 0; i < 1024; i++ {
+		if err := queue.Put(nil, []byte{}); err != nil {
+			t.Error(name, "阻塞队列-推送1024条数据返回nil", err)
+		}
+	}
+	go func() {
+		if err := queue.Put(context.Background(), []byte{}); !errors.Is(err, ErrQueueClosed) {
+			t.Error(name, "TestNewFifoMemoryQueuePutClose-ctx失效-阻塞队列-推送1024条数据返回cancel", err)
+		}
+	}()
+	time.Sleep(time.Millisecond)
+	queue.Close()
+	time.Sleep(time.Millisecond * 2)
 }
