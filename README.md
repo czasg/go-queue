@@ -30,7 +30,7 @@ import "github.com/czasg/go-queue"
 
 // 初始化内存队列
 _ = queue.NewFifoMemoryQueue() 
-_ = queue.NewLifoMemoryQueue() 
+_ = queue.NewLifoMemoryQueue(2048) 
 
 // 初始化磁盘队列，需要指定目标文件
 var fifofilename, lifofilename string
