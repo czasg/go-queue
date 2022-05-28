@@ -7,34 +7,35 @@
 
 ## 背景
 在 go 中，存在 `chan` 这种天然的 FIFO 队列。  
-但类似**LIFO队列，持久化机制**等，并没有通用的标准库，更多的是借用三方软件来实现。 
+但类似 **LIFO、持久化** 等特殊结构/能力，并没有通用的标准库，更多的是借用三方软件来实现。 
  
-go-queue 实现了简单的 **FIFO、LIFO、持久化** 等基础能力。
+go-queue 定义了简单的队列标准，提供了 **FIFO、LIFO、持久化** 等能力。
 
 ## 目标
-1、内存队列和磁盘队列  
+1、内存队列、磁盘队列  
 - [x] FIFO Memory Queue - 内存队列
 - [x] LIFO Memory Queue - 内存队列
 - [x] FIFO Disk Queue - 磁盘队列
 - [x] LIFO Disk Queue - 磁盘队列
 
-2、内存队列支持阻塞 Get/Put 数据，磁盘队列不支持
+2、Get/Put 支持阻塞，磁盘队列可不支持
 - [x] FIFO Block Memory Queue - 内存队列支持阻塞
 - [x] LIFO Block Memory Queue - 内存队列支持阻塞
 
 ## 使用
 1、初始化队列
-```go title="初始化队列"
+```go
 // 依赖
 import "github.com/czasg/go-queue"
-// FIFO内存队列
+
+// 初始化内存队列
 _ = queue.NewFifoMemoryQueue() 
-// LIFO内存队列
 _ = queue.NewLifoMemoryQueue() 
 
+// 初始化磁盘队列，需要指定目标文件
 var fifofilename, lifofilename string
-_, _ = queue.NewFifoDiskQueue(fifofilename) // FIFO磁盘队列
-_, _ = queue.NewLifoDiskQueue(lifofilename) // LIFO磁盘队列
+_, _ = queue.NewFifoDiskQueue(fifofilename)
+_, _ = queue.NewLifoDiskQueue(lifofilename)
 ```
 
 2、推送数据
@@ -45,7 +46,6 @@ _ = q.Put(nil, []byte("data"))
 // 阻塞
 _ = q.Put(context.Background(), []byte("data"))
 ```
-disk queue 不支持阻塞方式
 
 3、获取数据
 ```go
@@ -55,7 +55,13 @@ _, _ = q.Get(nil)
 // 阻塞
 _, _ = q.Get(context.Background())
 ```
-disk queue 不支持阻塞方式
+
+4、关闭队列
+```go
+q := queue.NewFifoMemoryQueue() 
+q.Close()
+```
+特别是磁盘队列，使用完后务必确保关闭。否则会出现**文件损坏**问题。
 
 ## 队列接口
 ```
