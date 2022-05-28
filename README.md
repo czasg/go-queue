@@ -7,9 +7,9 @@
 
 ## 背景
 在 go 中，存在 `chan` 这种天然的 FIFO 队列。  
-但类似 LIFO 队列，持久化机制等，并没有通用的标准库，更多的是借用三方软件来实现。 
+但类似**LIFO队列，持久化机制**等，并没有通用的标准库，更多的是借用三方软件来实现。 
  
-go-queue 实现了简单的 FIFO、LIFO、持久化 等基础能力。
+go-queue 实现了简单的 **FIFO、LIFO、持久化** 等基础能力。
 
 ## 目标
 1、内存队列和磁盘队列  
@@ -22,8 +22,42 @@ go-queue 实现了简单的 FIFO、LIFO、持久化 等基础能力。
 - [x] FIFO Block Memory Queue - 内存队列支持阻塞
 - [x] LIFO Block Memory Queue - 内存队列支持阻塞
 
-## 模块
-设计通用队列接口 `Queue`    
+## 使用
+1、初始化队列
+```go title="初始化队列"
+// 依赖
+import "github.com/czasg/go-queue"
+// FIFO内存队列
+_ = queue.NewFifoMemoryQueue() 
+// LIFO内存队列
+_ = queue.NewLifoMemoryQueue() 
+
+var fifofilename, lifofilename string
+_, _ = queue.NewFifoDiskQueue(fifofilename) // FIFO磁盘队列
+_, _ = queue.NewLifoDiskQueue(lifofilename) // LIFO磁盘队列
+```
+
+2、推送数据
+```go
+q := queue.NewFifoMemoryQueue() 
+// 非阻塞
+_ = q.Put(nil, []byte("data"))
+// 阻塞
+_ = q.Put(context.Background(), []byte("data"))
+```
+disk queue 不支持阻塞方式
+
+3、获取数据
+```go
+q := queue.NewFifoMemoryQueue() 
+// 非阻塞
+_, _ = q.Get(nil)
+// 阻塞
+_, _ = q.Get(context.Background())
+```
+disk queue 不支持阻塞方式
+
+## 队列接口
 ```
 type Queue interface {
     Get(ctx context.Context) ([]byte, error)
@@ -33,120 +67,3 @@ type Queue interface {
 }
 ```
 其中上下文`context.Context`用于决定此次`Get / Put`是否阻塞。
-
-## FIFO Memory Queue
-```go
-package main
-
-import (
-    "context"
-    "fmt"
-    "github.com/czasg/go-queue"
-    "time"
-)
-
-func main() {
-    q := queue.NewFifoMemoryQueue()
-    _ = q.Put(nil, []byte("go-queue"))
-    data, _ := q.Get(nil)
-    fmt.Println("非阻塞获取数据", string(data))
-
-    go func() {
-        data, _ := q.Get(context.Background())
-        fmt.Println("阻塞获取数据", string(data))
-    }()
-    time.Sleep(time.Second * 2)
-    _ = q.Put(nil, []byte("go-queue"))
-    time.Sleep(time.Millisecond)
-    q.Close()
-}
-```
-
-
-## LIFO Memory Queue
-```go
-package main
-
-import (
-    "context"
-    "fmt"
-    "github.com/czasg/go-queue"
-    "time"
-)
-
-func main() {
-    q := queue.NewLifoMemoryQueue()
-    _ = q.Put(nil, []byte("go-queue"))
-    data, _ := q.Get(nil)
-    fmt.Println("非阻塞获取数据", string(data))
-
-    go func() {
-        data, _ := q.Get(context.Background())
-        fmt.Println("阻塞获取数据", string(data))
-    }()
-    time.Sleep(time.Second * 2)
-    _ = q.Put(nil, []byte("go-queue"))
-    time.Sleep(time.Millisecond)
-    q.Close()
-}
-```
-
-## FIFO Disk Queue
-```go
-package main
-
-import (
-    "fmt"
-    "github.com/czasg/go-queue"
-    "io/ioutil"
-    "os"
-)
-
-func main() {
-    file, err := ioutil.TempFile("", "")
-    if err != nil {
-        panic(err)
-    }
-    defer os.RemoveAll(file.Name())
-    file.Close()
-
-    q, _ := queue.NewFifoDiskQueue(file.Name())
-    _ = q.Put(nil, []byte("go-queue"))
-    q.Close()
-
-    q, _ = queue.NewFifoDiskQueue(file.Name())
-    data, _ := q.Get(nil)
-    fmt.Println("获取数据", string(data))
-    q.Close()
-}
-```
-
-## LIFO Disk Queue
-```go
-package main
-
-import (
-    "fmt"
-    "github.com/czasg/go-queue"
-    "io/ioutil"
-    "os"
-)
-
-func main() {
-    file, err := ioutil.TempFile("", "")
-    if err != nil {
-        panic(err)
-    }
-    defer os.RemoveAll(file.Name())
-    file.Close()
-
-    q, _ := queue.NewLifoDiskQueue(file.Name())
-    _ = q.Put(nil, []byte("go-queue"))
-    q.Close()
-
-    q, _ = queue.NewLifoDiskQueue(file.Name())
-    data, _ := q.Get(nil)
-    fmt.Println("获取数据", string(data))
-    q.Close()
-}
-```
